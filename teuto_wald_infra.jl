@@ -16,6 +16,7 @@ begin
 	using Test
 	using GeoMakie
 	using CairoMakie
+	using LibGEOS
 end
 
 # ╔═╡ 2e730553-3682-4486-88de-2349a0196940
@@ -129,7 +130,8 @@ function union_geojson(geo_json_1, geo_json_2)
 						AG.getlayer(g2, 0) do l2
 							AG.getfeature(l2, 0) do f2
 								AG.getgeom(f2, 0) do g2
-									return AG.toJSON(AG.union(g1, g2))
+									union_raw = LibGEOS.union(LibGEOS.readgeom(AG.toWKT(g1)), LibGEOS.readgeom(AG.toWKT(g2)))
+									return AG.toJSON(AG.fromWKT(LibGEOS.writegeom(union_raw)))
 								end
 							end
 						end
@@ -170,26 +172,30 @@ function union_geojson(geojson_object_vector::Vector{String})
 	return init_object
 end
 
-# ╔═╡ 290efb66-0a54-4c69-adbc-0a62466f3d6d
-train_geo = GeoJSON.read(union_geojson(geo_json_list))
+# ╔═╡ ce55b178-f865-4222-b841-bdc7f387189a
+@testset "GeoJSON Intersection" begin
+	geo_json_1 = query_valhalla(51.0, 7.0)
+	geo_json_2 = query_valhalla(53.0, 8.0)
+	@test JSON.parse(union_geojson(geo_json_1, geo_json_2))["type"] == "MultiLineString"
+	@test JSON.parse(union_geojson(geo_json_1, geo_json_1))["type"] == "MultiLineString"
+
+	@test JSON.parse(union_geojson([geo_json_1, geo_json_1, geo_json_1]))["type"] == "MultiLineString"
+
+	@test JSON.parse(union_geojson([geo_json_1, geo_json_1, geo_json_2]))["type"] == "MultiLineString"
+end
 
 # ╔═╡ 04c4256a-c654-41af-8962-0017cef60a90
-?AG.union
+begin
+		geo_json_1 = query_valhalla(51.0, 7.0)
+		geo_json_2 = query_valhalla(53.0, 8.0)
+	
+end
+
+# ╔═╡ 290efb66-0a54-4c69-adbc-0a62466f3d6d
+union_geojson(geo_json_1, geo_json_2)
 
 # ╔═╡ 6d4682ef-997d-4a90-a88d-c367dc992539
-union_geojson(geo_json_list)
-
-# ╔═╡ 2ae40abb-3f5d-4ddb-9c1b-d16b2f2d944b
-AG.read(union_geojson(geo_json_list)) do g
-	AG.getlayer(g, 0) do l
-		AG.getfeature(l, 0) do f
-			AG.getgeom(f, 0) do geom
-				AG.union(geom)
-			end
-		end
-	end
-end
-# AG.simplify(AG.read(union_geojson(geo_json_list))) do 
+train_geo = union_geojson(geo_json_list)
 
 # ╔═╡ 31395f6f-16e9-4329-a5ba-f65c4e905f97
 begin
@@ -248,6 +254,7 @@ GeoJSON = "61d90e0f-e114-555e-ac52-39dfb47a3ef9"
 GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+LibGEOS = "a90b1aa1-3769-5649-ba7e-abc5a9d163eb"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
@@ -260,6 +267,7 @@ GeoJSON = "~0.6.4"
 GeoMakie = "~0.5.0"
 HTTP = "~1.7.4"
 JSON = "~0.21.3"
+LibGEOS = "~0.7.5"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -268,7 +276,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0-rc2"
 manifest_format = "2.0"
-project_hash = "ed6b834c3d612d60870dd21ee218385d2a740610"
+project_hash = "1fed334dce14cdffa3d9154246c270b24b2763ab"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -954,6 +962,12 @@ version = "0.6.3"
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
 version = "7.84.0+0"
+
+[[deps.LibGEOS]]
+deps = ["CEnum", "Extents", "GEOS_jll", "GeoInterface", "GeoInterfaceRecipes"]
+git-tree-sha1 = "b9b45b3a7addae5f320957860c75aefa59dc47b4"
+uuid = "a90b1aa1-3769-5649-ba7e-abc5a9d163eb"
+version = "0.7.5"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -1861,12 +1875,12 @@ version = "3.5.0+0"
 # ╠═a649d182-ace9-4c2a-a8da-7bf1cbdc9168
 # ╠═5ff0d5a6-44c3-4a23-8a4c-02312615fc66
 # ╠═c9765141-12cd-4d94-91f3-753d3e999aa2
+# ╠═ce55b178-f865-4222-b841-bdc7f387189a
 # ╠═708f0d04-5162-4c02-b2c9-d4979245dbec
 # ╠═2d933b0c-4fec-439d-aeaf-c0422ec68d59
 # ╠═290efb66-0a54-4c69-adbc-0a62466f3d6d
 # ╠═04c4256a-c654-41af-8962-0017cef60a90
 # ╠═6d4682ef-997d-4a90-a88d-c367dc992539
-# ╠═2ae40abb-3f5d-4ddb-9c1b-d16b2f2d944b
 # ╠═31395f6f-16e9-4329-a5ba-f65c4e905f97
 # ╠═8a1f34aa-ea80-4dfd-b505-06ff371053fd
 # ╟─00000000-0000-0000-0000-000000000001
