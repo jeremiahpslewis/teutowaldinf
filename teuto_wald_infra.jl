@@ -16,7 +16,33 @@ begin
 	using Test
 	using GeoMakie
 	using CairoMakie
-	using LibGEOS
+	import LightOSM
+	using OSMMakie
+end
+
+# ╔═╡ 46181645-b2e1-41b8-8bc7-11696ff168fb
+LightOSM.WAY_EXCLUSION_FILTERS[:drive_mainroads] = Dict(
+        "area" => ["yes"],
+        "highway" => ["cycleway", "footway", "path", "pedestrian", "steps", "track", "corridor", "elevator", "escalator", "proposed", "construction", "bridleway", "abandoned", "platform", "raceway", "service", "residential", "tertiary", "unclassified", "residential", "other"],
+        "motor_vehicle" => ["no"],
+        "motorcar" => ["no"],
+        "access" => ["private"],
+        "service" => ["parking", "parking_aisle", "driveway", "private", "emergency_access"]
+    )
+
+# ╔═╡ 35cd1c07-43c4-4397-98cb-1b60ba328733
+begin
+	area = (
+		minlat = 51.978, minlon = 7.977, # bottom left corner
+		maxlat = 52.315, maxlon = 8.61 # top right corner
+	)
+	
+	# download OpenStreetMap data
+	LightOSM.download_osm_network(:bbox; # rectangular area
+		area..., # splat previously defined area boundaries
+		network_type = :drive_mainroads, # download motorways
+		save_to_file_location = "osna.json"
+	);
 end
 
 # ╔═╡ 2e730553-3682-4486-88de-2349a0196940
@@ -32,7 +58,6 @@ function query_overpass_api(url::String)
 		String
 		JSON.parse
 		_["elements"]
-		DataFrame
 	end
 end
 
@@ -42,6 +67,7 @@ function query_overpass_cities_towns_villages()
 
 	return @chain url begin
 		query_overpass_api
+		DataFrame
 		# @transform(:railway = :tags["railway"],
 		# 	:station_name = :tags["name"]
 		# )
@@ -53,16 +79,55 @@ cities_towns = query_overpass_cities_towns_villages()
 
 # ╔═╡ b8de6fa3-e79c-4e14-95ee-c5281e086bd4
 function query_overpass_turbo_train_stations()
-	train_station_url = "https://overpass-api.de/api/interpreter?data=%2F*%0AThis%20has%20been%20generated%20by%20the%20overpass-turbo%20wizard.%0AThe%20original%20search%20was%3A%0A“%28railway%3Dstation%20OR%20railway%3Dhalt%29%20AND%20public_transport%3Dstation%20AND%20usage%21%3Dtourism”%0A*%2F%0A%5Bout%3Ajson%5D%5Btimeout%3A25%5D%3B%0A%2F%2F%20gather%20results%0A%28%0A%20%20%2F%2F%20query%20part%20for%3A%20“railway%3Dstation%20and%20public_transport%3Dstation%20and%20usage%21%3Dtourism”%0A%20%20node%5B%22railway%22%3D%22station%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%20%20way%5B%22railway%22%3D%22station%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%20%20relation%5B%22railway%22%3D%22station%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%20%20%2F%2F%20query%20part%20for%3A%20“railway%3Dhalt%20and%20public_transport%3Dstation%20and%20usage%21%3Dtourism”%0A%20%20node%5B%22railway%22%3D%22halt%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%20%20way%5B%22railway%22%3D%22halt%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%20%20relation%5B%22railway%22%3D%22halt%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%29%3B%0A%2F%2F%20print%20results%0Aout%20body%3B%0A%3E%3B%0Aout%20skel%20qt%3B"
+	url = "https://overpass-api.de/api/interpreter?data=%2F*%0AThis%20has%20been%20generated%20by%20the%20overpass-turbo%20wizard.%0AThe%20original%20search%20was%3A%0A“%28railway%3Dstation%20OR%20railway%3Dhalt%29%20AND%20public_transport%3Dstation%20AND%20usage%21%3Dtourism”%0A*%2F%0A%5Bout%3Ajson%5D%5Btimeout%3A25%5D%3B%0A%2F%2F%20gather%20results%0A%28%0A%20%20%2F%2F%20query%20part%20for%3A%20“railway%3Dstation%20and%20public_transport%3Dstation%20and%20usage%21%3Dtourism”%0A%20%20node%5B%22railway%22%3D%22station%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%20%20way%5B%22railway%22%3D%22station%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%20%20relation%5B%22railway%22%3D%22station%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%20%20%2F%2F%20query%20part%20for%3A%20“railway%3Dhalt%20and%20public_transport%3Dstation%20and%20usage%21%3Dtourism”%0A%20%20node%5B%22railway%22%3D%22halt%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%20%20way%5B%22railway%22%3D%22halt%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%20%20relation%5B%22railway%22%3D%22halt%22%5D%5B%22public_transport%22%3D%22station%22%5D%5B%22usage%22%21%3D%22tourism%22%5D%2851.97769053564645%2C7.94036865234375%2C52.3324020045096%2C8.711471557617188%29%3B%0A%29%3B%0A%2F%2F%20print%20results%0Aout%20body%3B%0A%3E%3B%0Aout%20skel%20qt%3B"
 	
-	return @chain train_station_url begin
+	return @chain url begin
 		query_overpass_api
+		DataFrame
 		@transform(:railway = :tags["railway"],
 			:station_name = :tags["name"],
 			:city = get(:tags, "addr:city", nothing),
 		)
 	end
 end
+
+# ╔═╡ 8d4a0645-47eb-4efb-8b37-22a773bbdb08
+function query_overpass_turbo_l3_hospitals()
+	url = "https://overpass-api.de/api/interpreter?data=%2F*%0AThis%20has%20been%20generated%20by%20the%20overpass-turbo%20wizard.%0AThe%20original%20search%20was%3A%0A“hospital%3Alevel%3ADE%3D3”%0A*%2F%0A%5Bout%3Ajson%5D%5Btimeout%3A25%5D%3B%0A%2F%2F%20gather%20results%0A%28%0A%20%20%2F%2F%20query%20part%20for%3A%20“%22hospital%3Alevel%3ADE%22%3D3”%0A%20%20node%5B%22hospital%3Alevel%3ADE%22%3D%223%22%5D%2851.36492148825955%2C6.65771484375%2C53.00982585620075%2C10.862731933593748%29%3B%0A%20%20way%5B%22hospital%3Alevel%3ADE%22%3D%223%22%5D%2851.36492148825955%2C6.65771484375%2C53.00982585620075%2C10.862731933593748%29%3B%0A%20%20relation%5B%22hospital%3Alevel%3ADE%22%3D%223%22%5D%2851.36492148825955%2C6.65771484375%2C53.00982585620075%2C10.862731933593748%29%3B%0A%29%3B%0A%2F%2F%20print%20results%0Aout%20center%20body%3B%0A"
+
+	return @chain url begin
+		query_overpass_api
+		DataFrame(data = _)
+		@transform(
+			:lat = :data["center"]["lat"],
+			:lon = :data["center"]["lon"],
+			:name = :data["tags"]["name"],
+			:city = get(:data["tags"], "addr:city", nothing),
+		)
+	end
+end
+
+# ╔═╡ ef028802-0dd2-484b-b1a5-a3eec9fda814
+function query_overpass_supermarket()
+	url = "https://overpass-api.de/api/interpreter?data=%2F*%0AThis%20has%20been%20generated%20by%20the%20overpass-turbo%20wizard.%0AThe%20original%20search%20was%3A%0A“shop%3Dsupermarket”%0A*%2F%0A%5Bout%3Ajson%5D%5Btimeout%3A25%5D%3B%0A%2F%2F%20gather%20results%0A%28%0A%20%20%2F%2F%20query%20part%20for%3A%20“shop%3Dsupermarket”%0A%20%20node%5B%22shop%22%3D%22supermarket%22%5D%2851.9387620662011%2C7.7886199951171875%2C52.350440909192635%2C8.839874267578125%29%3B%0A%20%20way%5B%22shop%22%3D%22supermarket%22%5D%2851.9387620662011%2C7.7886199951171875%2C52.350440909192635%2C8.839874267578125%29%3B%0A%20%20relation%5B%22shop%22%3D%22supermarket%22%5D%2851.9387620662011%2C7.7886199951171875%2C52.350440909192635%2C8.839874267578125%29%3B%0A%29%3B%0A%2F%2F%20print%20results%0Aout%20center%20body%3B%0A"
+
+	return @chain url begin
+		query_overpass_api
+		DataFrame(data = _)
+		@transform(
+			:lat = haskey(:data, "center") ? :data["center"]["lat"] : :data["lat"],
+			:lon = haskey(:data, "center") ? :data["center"]["lon"] : :data["lon"],
+			:name = get(:data["tags"], "name", nothing),
+			:city = get(:data["tags"], "addr:city", nothing),
+		)
+	end
+end
+
+# ╔═╡ 2aa2f768-afc4-4993-b63a-a89844b9df49
+d_supermarket = query_overpass_supermarket()
+
+# ╔═╡ bff420a9-4d67-4982-8275-a53140230dcd
+d_hospitals = query_overpass_turbo_l3_hospitals()
 
 # ╔═╡ e98ed38b-0506-4ecb-9720-0ec3ca2ab9e2
 data = query_overpass_turbo_train_stations()
@@ -95,6 +160,21 @@ begin
 		@transform(:geojson_out = query_valhalla(:lat, :lon; time=travel_time))
 	end
 end
+
+# ╔═╡ 2048c5b3-e24a-4722-9866-07661998c6bd
+d_hospitals_vh = @chain d_hospitals begin
+	@transform(:geojson_out = query_valhalla(:lat, :lon; time=30, costing="auto"))
+	_[!, :geojson_out]
+end
+
+# ╔═╡ 32f0bfd1-b2e2-4f27-b246-b24ea05ce9a1
+d_supermarket_vh = @chain d_supermarket begin
+	@transform(:geojson_out = query_valhalla(:lat, :lon; time=15, costing="bicycle"))
+	_[!, :geojson_out]
+end
+
+# ╔═╡ 8fb126b1-766a-4ca0-aed3-36de82308179
+@chain d_supermarket @subset(!(:lat isa Float64))
 
 # ╔═╡ 9879ae48-acf0-4c7b-b942-9df8a8e4d3c7
 geo_json_list = @chain data_ begin
@@ -187,66 +267,130 @@ end
 end
 
 # ╔═╡ 04c4256a-c654-41af-8962-0017cef60a90
-begin
-	geo_json_1 = query_valhalla(51.0, 7.0; time=travel_time)
-	geo_json_2 = query_valhalla(53.0, 8.0; time=travel_time)
-end
-
-# ╔═╡ 290efb66-0a54-4c69-adbc-0a62466f3d6d
-union_geojson(geo_json_1, geo_json_2)
+hospital_geo = GeoJSON.read(union_geojson(d_hospitals_vh))
 
 # ╔═╡ 6d4682ef-997d-4a90-a88d-c367dc992539
 train_geo = GeoJSON.read(union_geojson(geo_json_list))
 
-# ╔═╡ 31395f6f-16e9-4329-a5ba-f65c4e905f97
-begin
-	background_gray = RGBf(0.85, 0.85, 0.85)
-	fontsize_theme = Theme(; fontsize=20, backgroundcolor=background_gray)
-	set_theme!(fontsize_theme)
-	dest = "+proj=laea"
-	source = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+# ╔═╡ 0cf34b9f-7e4f-4d45-abe2-0425dcd452e9
 
-	fig = Figure(; resolution=(1000, 500))
-	gd = fig[1, 1] = GridLayout()
+
+# ╔═╡ b2a79324-ea25-419f-841b-f2ac78edec14
+
+
+# ╔═╡ 0145b1df-c868-4645-90ea-a8ebd1964f0a
+
+
+# ╔═╡ 673b9952-f286-44b8-9cfe-6559f18e85bb
+fig2
+
+# ╔═╡ e7856529-f9bf-4385-8a45-3f5c1266cea1
+function build_teuto_basemap()
+	osm = LightOSM.graph_from_file("osna.json";
+		network_type = :drive_mainroads,
+		graph_type = :light, # SimpleDiGraph
+		weight_type = :distance
+	)
+
+	autolimitaspect = map_aspect(area.minlat, area.maxlat)
+	fig, ax, plot = osmplot(osm; axis = (; autolimitaspect))
+	return fig, ax, plot
+end
+
+# ╔═╡ 31395f6f-16e9-4329-a5ba-f65c4e905f97
+function train_plot()
+	# background_gray = RGBf(0.85, 0.85, 0.85)
+	# fontsize_theme = Theme(; fontsize=20, backgroundcolor=background_gray)
+	# set_theme!(fontsize_theme)
+	# dest = "+proj=laea"
+	# source = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+
+	# fig = Figure(; resolution=(1000, 500))
+	# gd = fig[1, 1] = GridLayout()
 
 	# 7.977 51.978 8.61 52.315
-	ga = GeoAxis(
-		gd[1, 1];
-		source=source,
-		dest=dest,
-		lonlims=(7.7, 8.9),
-		latlims=(51.778, 52.515),
-		title="$travel_time Min from Train",
-		subtitle="Data: © OpenStreetMap",
-		backgroundcolor=background_gray,
-	)
-	for c in train_geo
-		lines!(
-			ga,
-			GeoMakie.geo2basic(c);
-			strokecolor=RGBf(0.90, 0.90, 0.90),
-			color="#000000",
-			fill="#000000",
-			strokewidth=100,
-			label="test",
-		)
-	end
 
-	scatter!(ga,
+	fig, ax, plot = build_teuto_basemap()	
+	# ga = GeoAxis(
+	# 	gd[1, 1];
+	# 	source=source,
+	# 	dest=dest,
+	# 	lonlims=(7.977, 8.61),
+	# 	latlims=(51.978, 52.315),
+	# 	title="$travel_time Min Bike to Train",
+	# 	subtitle="Data: © OpenStreetMap",
+	# 	backgroundcolor=background_gray,
+	# )
+
+	# Plot trains
+	poly!(
+		ax,
+		GeoMakie.geo2basic(train_geo);
+		color=("#1e4f37", 0.8),
+	)
+
+	scatter!(ax,
 		data[!, :lon],
 		data[!, :lat],
 		strokecolor = (:black, 100);
-		# label=data[!, :station_name],
+		color = :black,
 		size=1000)
-	@chain data @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ga,
+	@chain data @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ax,
 		_[!, :lon],
 		_[!, :lat];
-		text=_[!, :city])
-	fig
+		text=_[!, :city],
+		color=:white
+	)
+	
+	xlims!(ax, [area.minlon, area.maxlon])
+	ylims!(ax, [area.minlat, area.maxlat])
+
+	ax.title = "Infrastructure Access: 30 min bike to train station"
+	return fig, ax, plot
 end
 
+# ╔═╡ e1afbd7f-4922-44f6-bdee-61019bf65eee
+# ╠═╡ show_logs = false
+f, a, pl = train_plot()
+
+# ╔═╡ bd6b0aa9-b258-4367-9d73-32c1d679700f
+f
+
 # ╔═╡ f3a81e28-7f50-4295-adbc-3aa8d26ea46f
-train_geo
+function plot_hospitals()
+	fig, ax, plot = build_teuto_basemap()
+
+	poly!(
+		ax,
+		GeoMakie.geo2basic(hospital_geo);
+		color=("#4d0875", 0.8),
+	)
+
+	scatter!(ax,
+		data[!, :lon],
+		data[!, :lat],
+		color = (:black, 100);
+		size=1000)
+	@chain data @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ax,
+		_[!, :lon],
+		_[!, :lat];
+		text=_[!, :city],
+		color=:white,
+		)
+
+	xlims!(ax, [area.minlon, area.maxlon])
+	ylims!(ax, [area.minlat, area.maxlat])
+
+	ax.title = "Infrastructure Access: 30 min drive to Level 3 Hospital"
+	return fig, ax, plot
+end
+
+# ╔═╡ a52ce73b-9902-4744-9e30-9f86ccdb13e4
+# ╠═╡ show_logs = false
+plot_hospitals()[1]
+
+# ╔═╡ 8c2a8fef-048a-43d8-bdf1-0855fb5d3575
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -260,7 +404,8 @@ GeoJSON = "61d90e0f-e114-555e-ac52-39dfb47a3ef9"
 GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-LibGEOS = "a90b1aa1-3769-5649-ba7e-abc5a9d163eb"
+LightOSM = "d1922b25-af4e-4ba3-84af-fe9bea896051"
+OSMMakie = "76b6901f-8821-46bb-9129-841bc9cfe677"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
@@ -273,7 +418,8 @@ GeoJSON = "~0.6.4"
 GeoMakie = "~0.5.0"
 HTTP = "~1.7.4"
 JSON = "~0.21.3"
-LibGEOS = "~0.7.5"
+LightOSM = "~0.2.8"
+OSMMakie = "~0.0.7"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -282,7 +428,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0-rc2"
 manifest_format = "2.0"
-project_hash = "1fed334dce14cdffa3d9154246c270b24b2763ab"
+project_hash = "1277bbc3d461db41792376683b097b7586bfd61b"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -324,6 +470,17 @@ version = "0.10.0"
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 version = "1.1.1"
+
+[[deps.ArnoldiMethod]]
+deps = ["LinearAlgebra", "Random", "StaticArrays"]
+git-tree-sha1 = "62e51b39331de8911e4a7ff6f5aaf38a5f4cc0ae"
+uuid = "ec485272-7323-5ecc-a04f-4719b315124d"
+version = "0.2.0"
+
+[[deps.ArrayTools]]
+git-tree-sha1 = "c7218fcb9e570633115447768f5f728fc07d2029"
+uuid = "1dc0ca97-c5ce-4e77-ac6d-c576ac9d7f27"
+version = "0.2.5"
 
 [[deps.Arrow_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Lz4_jll", "Pkg", "Thrift_jll", "Zlib_jll", "boost_jll", "snappy_jll"]
@@ -524,6 +681,12 @@ deps = ["OffsetArrays"]
 git-tree-sha1 = "6d5b17f84cffa44a1933b50997927fe109039abc"
 uuid = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
 version = "0.3.10"
+
+[[deps.Distances]]
+deps = ["LinearAlgebra", "SparseArrays", "Statistics", "StatsAPI"]
+git-tree-sha1 = "49eba9ad9f7ead780bfb7ee319f962c811c6d3b2"
+uuid = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
+version = "0.10.8"
 
 [[deps.Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -733,6 +896,12 @@ git-tree-sha1 = "d3b3624125c1474292d0d8ed0f65554ac37ddb23"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
 version = "2.74.0+2"
 
+[[deps.GraphMakie]]
+deps = ["GeometryBasics", "Graphs", "LinearAlgebra", "Makie", "NetworkLayout", "PolynomialRoots", "StaticArrays"]
+git-tree-sha1 = "72882a1584f367cfecc83e3e8a232c7720c262cd"
+uuid = "1ecd5474-83a3-4783-bb4f-06765db800d2"
+version = "0.5.3"
+
 [[deps.Graphics]]
 deps = ["Colors", "LinearAlgebra", "NaNMath"]
 git-tree-sha1 = "d61890399bc535850c4bf08e4e0d3a7ad0f21cbd"
@@ -744,6 +913,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "344bf40dcab1073aca04aa0df4fb092f920e4011"
 uuid = "3b182d85-2403-5c21-9c21-1e1f0cc25472"
 version = "1.3.14+0"
+
+[[deps.Graphs]]
+deps = ["ArnoldiMethod", "Compat", "DataStructures", "Distributed", "Inflate", "LinearAlgebra", "Random", "SharedArrays", "SimpleTraits", "SparseArrays", "Statistics"]
+git-tree-sha1 = "1cf1d7dcb4bc32d7b4a5add4232db3750c27ecb4"
+uuid = "86223c79-3864-5bf0-83f7-82e725a168b6"
+version = "1.8.0"
 
 [[deps.GridLayoutBase]]
 deps = ["GeometryBasics", "InteractiveUtils", "Observables"]
@@ -885,6 +1060,12 @@ git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
 
+[[deps.JLD2]]
+deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "Pkg", "Printf", "Reexport", "Requires", "TranscodingStreams", "UUIDs"]
+git-tree-sha1 = "42c17b18ced77ff0be65957a591d34f4ed57c631"
+uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+version = "0.4.31"
+
 [[deps.JLLWrappers]]
 deps = ["Preferences"]
 git-tree-sha1 = "abc9885a7ca2052a736a600f7fa66209f96506e1"
@@ -969,12 +1150,6 @@ deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
 version = "7.84.0+0"
 
-[[deps.LibGEOS]]
-deps = ["CEnum", "Extents", "GEOS_jll", "GeoInterface", "GeoInterfaceRecipes"]
-git-tree-sha1 = "b9b45b3a7addae5f320957860c75aefa59dc47b4"
-uuid = "a90b1aa1-3769-5649-ba7e-abc5a9d163eb"
-version = "0.7.5"
-
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
@@ -1034,6 +1209,18 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "7f3efec06033682db852f8b3bc3c1d2b0a0ab066"
 uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.36.0+0"
+
+[[deps.LightOSM]]
+deps = ["DataStructures", "Graphs", "HTTP", "JSON", "LightXML", "MetaGraphs", "NearestNeighbors", "Parameters", "QuickHeaps", "SimpleWeightedGraphs", "SparseArrays", "SpatialIndexing", "StaticArrays", "StaticGraphs", "Statistics"]
+git-tree-sha1 = "4a0ebcf9a80b9ac98242016aff608afc39f61f4b"
+uuid = "d1922b25-af4e-4ba3-84af-fe9bea896051"
+version = "0.2.8"
+
+[[deps.LightXML]]
+deps = ["Libdl", "XML2_jll"]
+git-tree-sha1 = "e129d9391168c677cd4800f5c0abb1ed8cb3794f"
+uuid = "9c8b4983-aa76-5018-a973-4c85ecc9e179"
+version = "0.9.0"
 
 [[deps.LinearAlgebra]]
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
@@ -1131,6 +1318,12 @@ deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
 version = "2.28.2+0"
 
+[[deps.MetaGraphs]]
+deps = ["Graphs", "JLD2", "Random"]
+git-tree-sha1 = "1130dbe1d5276cb656f6e1094ce97466ed700e5a"
+uuid = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
+version = "0.7.2"
+
 [[deps.MiniQhull]]
 deps = ["QhullMiniWrapper_jll"]
 git-tree-sha1 = "9dc837d180ee49eeb7c8b77bb1c860452634b0d1"
@@ -1162,6 +1355,12 @@ git-tree-sha1 = "0877504529a3e5c3343c6f8b4c0381e57e4387e4"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.0.2"
 
+[[deps.NearestNeighbors]]
+deps = ["Distances", "StaticArrays"]
+git-tree-sha1 = "2c3726ceb3388917602169bed973dbc97f1b51a8"
+uuid = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
+version = "0.4.13"
+
 [[deps.NetCDF_jll]]
 deps = ["Artifacts", "HDF5_jll", "JLLWrappers", "LibCURL_jll", "Libdl", "Pkg", "XML2_jll", "Zlib_jll"]
 git-tree-sha1 = "072f8371f74c3b9e1b26679de7fbf059d45ea221"
@@ -1174,9 +1373,21 @@ git-tree-sha1 = "5ae7ca23e13855b3aba94550f26146c01d259267"
 uuid = "f09324ee-3d7c-5217-9330-fc30815ba969"
 version = "1.1.0"
 
+[[deps.NetworkLayout]]
+deps = ["GeometryBasics", "LinearAlgebra", "Random", "Requires", "SparseArrays", "StaticArrays"]
+git-tree-sha1 = "2bfd8cd7fba3e46ce48139ae93904ee848153660"
+uuid = "46757867-2c16-5918-afeb-47bfcb05e46a"
+version = "0.4.5"
+
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
+
+[[deps.OSMMakie]]
+deps = ["GraphMakie", "Graphs", "LightOSM", "Makie"]
+git-tree-sha1 = "1c146008e2a95feed4bc165200084a709b55f731"
+uuid = "76b6901f-8821-46bb-9129-841bc9cfe677"
+version = "0.0.7"
 
 [[deps.Observables]]
 git-tree-sha1 = "6862738f9796b3edc1c09d0890afce4eca9e7e93"
@@ -1293,6 +1504,12 @@ git-tree-sha1 = "84a314e3926ba9ec66ac097e3635e270986b0f10"
 uuid = "36c8627f-9965-5494-a995-c6b170f724f3"
 version = "1.50.9+0"
 
+[[deps.Parameters]]
+deps = ["OrderedCollections", "UnPack"]
+git-tree-sha1 = "34c0e9ad262e5f7fc75b10a9952ca7692cfc5fbe"
+uuid = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+version = "0.12.3"
+
 [[deps.Parsers]]
 deps = ["Dates", "SnoopPrecompile"]
 git-tree-sha1 = "478ac6c952fddd4399e71d4779797c538d0ff2bf"
@@ -1326,6 +1543,11 @@ version = "1.3.4"
 git-tree-sha1 = "77b3d3605fc1cd0b42d95eba87dfcd2bf67d5ff6"
 uuid = "647866c9-e3ac-4575-94e7-e3d426903924"
 version = "0.1.2"
+
+[[deps.PolynomialRoots]]
+git-tree-sha1 = "5f807b5345093487f733e520a1b7395ee9324825"
+uuid = "3a141323-8675-5d76-9d11-e1df1406c778"
+version = "1.0.0"
 
 [[deps.PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -1384,6 +1606,12 @@ deps = ["DataStructures", "LinearAlgebra"]
 git-tree-sha1 = "6ec7ac8412e83d57e313393220879ede1740f9ee"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 version = "2.8.2"
+
+[[deps.QuickHeaps]]
+deps = ["ArrayTools", "DataStructures"]
+git-tree-sha1 = "ff720a9c8356004cc9e3d109cdcb327510345edc"
+uuid = "30b38841-0f52-47f8-a5f8-18d5d4064379"
+version = "0.1.2"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -1509,6 +1737,12 @@ git-tree-sha1 = "5d7e3f4e11935503d3ecaf7186eac40602e7d231"
 uuid = "699a6c99-e7fa-54fc-8d76-47d257e15c1d"
 version = "0.9.4"
 
+[[deps.SimpleWeightedGraphs]]
+deps = ["Graphs", "LinearAlgebra", "Markdown", "SparseArrays", "Test"]
+git-tree-sha1 = "7d0b07df35fccf9b866a94bcab98822a87a3cb6f"
+uuid = "47aef6b3-ad0c-573a-a1e2-d07658019622"
+version = "1.3.0"
+
 [[deps.Sixel]]
 deps = ["Dates", "FileIO", "ImageCore", "IndirectArrays", "OffsetArrays", "REPL", "libsixel_jll"]
 git-tree-sha1 = "8fb59825be681d451c246a795117f317ecbcaa28"
@@ -1533,6 +1767,11 @@ version = "1.1.0"
 [[deps.SparseArrays]]
 deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+
+[[deps.SpatialIndexing]]
+git-tree-sha1 = "bacf5065cd7c0d6449b8bba6fa8e75b3087356b0"
+uuid = "d4ead438-fe20-5cc5-a293-4fd39a41b74c"
+version = "0.1.5"
 
 [[deps.SpecialFunctions]]
 deps = ["IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
@@ -1566,6 +1805,12 @@ version = "1.5.19"
 git-tree-sha1 = "6b7ba252635a5eff6a0b0664a41ee140a1c9e72a"
 uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 version = "1.4.0"
+
+[[deps.StaticGraphs]]
+deps = ["Graphs", "JLD2", "SparseArrays"]
+git-tree-sha1 = "855371d8fdfaed46dbb32a7c57a42db4441b9247"
+uuid = "4c8beaf5-199b-59a0-a7f2-21d17de635b6"
+version = "0.3.0"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -1692,6 +1937,11 @@ version = "1.4.2"
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[[deps.UnPack]]
+git-tree-sha1 = "387c1f73762231e86e0c9c5443ce3b4a0a9a0c2b"
+uuid = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
+version = "1.0.2"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
@@ -1869,14 +2119,23 @@ version = "3.5.0+0"
 
 # ╔═╡ Cell order:
 # ╠═69b4f474-d2fa-11ed-0c13-8bf5ecaca0a6
+# ╠═46181645-b2e1-41b8-8bc7-11696ff168fb
+# ╠═35cd1c07-43c4-4397-98cb-1b60ba328733
 # ╟─2e730553-3682-4486-88de-2349a0196940
 # ╠═723f76a3-bde0-4397-9edc-3115b94b80a2
 # ╠═1166c60d-8b28-4eb6-a33a-70e3fd3d3444
 # ╠═4a88dfc5-6930-45b3-bf94-1a962df9ab91
 # ╠═b8de6fa3-e79c-4e14-95ee-c5281e086bd4
+# ╠═8d4a0645-47eb-4efb-8b37-22a773bbdb08
+# ╠═ef028802-0dd2-484b-b1a5-a3eec9fda814
+# ╠═2aa2f768-afc4-4993-b63a-a89844b9df49
+# ╠═bff420a9-4d67-4982-8275-a53140230dcd
 # ╠═e98ed38b-0506-4ecb-9720-0ec3ca2ab9e2
 # ╠═4328f3fb-0e68-4267-9d3a-5202ac96d464
 # ╠═11e5730c-d17c-43ec-8924-e938f1d96eb2
+# ╠═2048c5b3-e24a-4722-9866-07661998c6bd
+# ╠═32f0bfd1-b2e2-4f27-b246-b24ea05ce9a1
+# ╠═8fb126b1-766a-4ca0-aed3-36de82308179
 # ╠═9879ae48-acf0-4c7b-b942-9df8a8e4d3c7
 # ╠═a649d182-ace9-4c2a-a8da-7bf1cbdc9168
 # ╠═5ff0d5a6-44c3-4a23-8a4c-02312615fc66
@@ -1884,10 +2143,18 @@ version = "3.5.0+0"
 # ╠═ce55b178-f865-4222-b841-bdc7f387189a
 # ╠═708f0d04-5162-4c02-b2c9-d4979245dbec
 # ╠═2d933b0c-4fec-439d-aeaf-c0422ec68d59
-# ╠═290efb66-0a54-4c69-adbc-0a62466f3d6d
 # ╠═04c4256a-c654-41af-8962-0017cef60a90
 # ╠═6d4682ef-997d-4a90-a88d-c367dc992539
 # ╠═31395f6f-16e9-4329-a5ba-f65c4e905f97
 # ╠═f3a81e28-7f50-4295-adbc-3aa8d26ea46f
+# ╠═e1afbd7f-4922-44f6-bdee-61019bf65eee
+# ╠═0cf34b9f-7e4f-4d45-abe2-0425dcd452e9
+# ╠═bd6b0aa9-b258-4367-9d73-32c1d679700f
+# ╠═a52ce73b-9902-4744-9e30-9f86ccdb13e4
+# ╠═b2a79324-ea25-419f-841b-f2ac78edec14
+# ╠═0145b1df-c868-4645-90ea-a8ebd1964f0a
+# ╠═673b9952-f286-44b8-9cfe-6559f18e85bb
+# ╠═e7856529-f9bf-4385-8a45-3f5c1266cea1
+# ╠═8c2a8fef-048a-43d8-bdf1-0855fb5d3575
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
