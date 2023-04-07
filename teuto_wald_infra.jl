@@ -89,6 +89,7 @@ function query_overpass_cities_towns_villages()
 	return @chain query begin
 		query_overpass_api
 		DataFrame
+		@transform(:city = :tags["name"])
 	end
 end
 
@@ -123,11 +124,12 @@ function query_overpass_turbo_train_stations()
 	return @chain query begin
 		query_overpass_api
 		DataFrame(data = _)
-		# @transform(:data["tags"])
-		# @transform(:railway = :data["tags"]["railway"],
-		# 	:station_name = :data["tags"]["name"],
-		# 	:city = get(:data["tags"], "addr:city", nothing),
-		# )
+		@transform(:railway = :data["tags"]["railway"],
+			:station_name = :data["tags"]["name"],
+			:city = get(:data["tags"], "addr:city", nothing),
+			:lat = :data["lat"],
+			:lon= :data["lon"],
+		)
 	end
 end
 
@@ -228,6 +230,7 @@ begin
 	travel_time = 30
 	d_train_vh = @chain d_train begin
 		@transform(:geojson_out = query_valhalla(:lat, :lon; time=travel_time))
+		_[!, :geojson_out]
 	end
 end
 
@@ -364,12 +367,25 @@ function plot_train()
 	)
 
 	scatter!(ax,
-		data[!, :lon],
-		data[!, :lat],
+		d_train[!, :lon],
+		d_train[!, :lat],
+		strokecolor = (:green, 100);
+		fill = :green,
+		size=1000)
+
+	scatter!(ax,
+		cities_towns[!, :lon],
+		cities_towns[!, :lat],
 		strokecolor = (:black, 100);
 		color = :black,
 		size=1000)
-	@chain data @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ax,
+	@chain cities_towns text!(ax,
+			_[!, :lon],
+			_[!, :lat];
+			text=_[!, :city],
+			color=:black
+		)
+	@chain d_train @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ax,
 		_[!, :lon],
 		_[!, :lat];
 		text=_[!, :city],
@@ -385,7 +401,10 @@ end
 
 # ╔═╡ e1afbd7f-4922-44f6-bdee-61019bf65eee
 # ╠═╡ show_logs = false
-f, a, pl = plot_train()
+begin
+	f, a, pl = plot_train()
+	f
+end
 
 # ╔═╡ f3a81e28-7f50-4295-adbc-3aa8d26ea46f
 function plot_hospitals()
@@ -398,11 +417,11 @@ function plot_hospitals()
 	)
 
 	scatter!(ax,
-		data[!, :lon],
-		data[!, :lat],
+		d_train[!, :lon],
+		d_train[!, :lat],
 		color = (:black, 100);
 		size=1000)
-	@chain data @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ax,
+	@chain d_train @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ax,
 		_[!, :lon],
 		_[!, :lat];
 		text=_[!, :city],
@@ -431,11 +450,11 @@ function plot_supermarkets()
 	)
 
 	scatter!(ax,
-		data[!, :lon],
-		data[!, :lat],
+		d_train[!, :lon],
+		d_train[!, :lat],
 		color = (:black, 100);
 		size=1000)
-	@chain data @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ax,
+	@chain d_train @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ax,
 		_[!, :lon],
 		_[!, :lat];
 		text=_[!, :city],
@@ -464,11 +483,11 @@ function plot_infra_centers()
 	)
 
 	scatter!(ax,
-		data[!, :lon],
-		data[!, :lat],
+		d_train[!, :lon],
+		d_train[!, :lat],
 		color = (:black, 100);
 		size=1000)
-	@chain data @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ax,
+	@chain d_train @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ax,
 		_[!, :lon],
 		_[!, :lat];
 		text=_[!, :city],
