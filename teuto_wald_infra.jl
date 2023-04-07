@@ -73,7 +73,8 @@ function query_valhalla(latitude::Float64, longitude::Float64;
 	json_payload = Dict("locations" => [
 		Dict("lat" => latitude, "lon" => longitude)],
 		"costing" => costing,
-		"contours" => [Dict("time" => time, "color" => "ff0000")]
+		"contours" => [Dict("time" => time, "color" => "ff0000")],
+		"polygons" => true,
 	)
 
 	# https://valhalla1.openstreetmap.de/isochrone
@@ -88,8 +89,9 @@ end
 
 # ╔═╡ 11e5730c-d17c-43ec-8924-e938f1d96eb2
 begin
+	travel_time = 30
 	data_ = @chain data begin
-		@transform(:geojson_out = query_valhalla(:lat, :lon; time=30))
+		@transform(:geojson_out = query_valhalla(:lat, :lon; time=travel_time))
 	end
 end
 
@@ -130,8 +132,7 @@ function union_geojson(geo_json_1, geo_json_2)
 						AG.getlayer(g2, 0) do l2
 							AG.getfeature(l2, 0) do f2
 								AG.getgeom(f2, 0) do g2
-									union_raw = LibGEOS.union(LibGEOS.readgeom(AG.toWKT(g1)), LibGEOS.readgeom(AG.toWKT(g2)))
-									return AG.toJSON(AG.fromWKT(LibGEOS.writegeom(union_raw)))
+									return AG.toJSON(AG.union(g1, g2))
 								end
 							end
 						end
@@ -155,12 +156,12 @@ end
 @testset "GeoJSON Intersection" begin
 	geo_json_1 = query_valhalla(51.0, 7.0)
 	geo_json_2 = query_valhalla(53.0, 8.0)
-	@test intersect_geojson(geo_json_1, geo_json_2) == "{ \"type\": \"LineString\", \"coordinates\": [ ] }"
-	@test JSON.parse(intersect_geojson(geo_json_1, geo_json_1))["type"] == "MultiLineString"
+	@test intersect_geojson(geo_json_1, geo_json_2) == "{ \"type\": \"Polygon\", \"coordinates\": [ ] }"
+	@test JSON.parse(intersect_geojson(geo_json_1, geo_json_1))["type"] == "Polygon"
 
-	@test JSON.parse(intersect_geojson([geo_json_1, geo_json_1, geo_json_1]))["type"] == "MultiLineString"
+	@test JSON.parse(intersect_geojson([geo_json_1, geo_json_1, geo_json_1]))["type"] == "Polygon"
 
-	@test intersect_geojson([geo_json_1, geo_json_1, geo_json_2]) == "{ \"type\": \"LineString\", \"coordinates\": [ ] }"
+	@test intersect_geojson([geo_json_1, geo_json_1, geo_json_2]) == "{ \"type\": \"Polygon\", \"coordinates\": [ ] }"
 end
 
 # ╔═╡ 2d933b0c-4fec-439d-aeaf-c0422ec68d59
@@ -176,26 +177,25 @@ end
 @testset "GeoJSON Intersection" begin
 	geo_json_1 = query_valhalla(51.0, 7.0)
 	geo_json_2 = query_valhalla(53.0, 8.0)
-	@test JSON.parse(union_geojson(geo_json_1, geo_json_2))["type"] == "MultiLineString"
-	@test JSON.parse(union_geojson(geo_json_1, geo_json_1))["type"] == "MultiLineString"
+	@test JSON.parse(union_geojson(geo_json_1, geo_json_2))["type"] == "MultiPolygon"
+	@test JSON.parse(union_geojson(geo_json_1, geo_json_1))["type"] == "Polygon"
 
-	@test JSON.parse(union_geojson([geo_json_1, geo_json_1, geo_json_1]))["type"] == "MultiLineString"
+	@test JSON.parse(union_geojson([geo_json_1, geo_json_1, geo_json_1]))["type"] == "Polygon"
 
-	@test JSON.parse(union_geojson([geo_json_1, geo_json_1, geo_json_2]))["type"] == "MultiLineString"
+	@test JSON.parse(union_geojson([geo_json_1, geo_json_1, geo_json_2]))["type"] == "MultiPolygon"
 end
 
 # ╔═╡ 04c4256a-c654-41af-8962-0017cef60a90
 begin
-		geo_json_1 = query_valhalla(51.0, 7.0)
-		geo_json_2 = query_valhalla(53.0, 8.0)
-	
+	geo_json_1 = query_valhalla(51.0, 7.0; time=travel_time)
+	geo_json_2 = query_valhalla(53.0, 8.0; time=travel_time)
 end
 
 # ╔═╡ 290efb66-0a54-4c69-adbc-0a62466f3d6d
 union_geojson(geo_json_1, geo_json_2)
 
 # ╔═╡ 6d4682ef-997d-4a90-a88d-c367dc992539
-train_geo = union_geojson(geo_json_list)
+train_geo = GeoJSON.read(union_geojson(geo_json_list))
 
 # ╔═╡ 31395f6f-16e9-4329-a5ba-f65c4e905f97
 begin
@@ -213,9 +213,9 @@ begin
 		gd[1, 1];
 		source=source,
 		dest=dest,
-		lonlims=(7.977, 8.61),
-		latlims=(51.978, 52.315),
-		title="15 Min from Train",
+		lonlims=(7.877, 8.81),
+		latlims=(51.778, 52.515),
+		title=string(travel_time) * " Min from Train",
 		subtitle="Data: © OpenStreetMap",
 		backgroundcolor=background_gray,
 	)
@@ -239,8 +239,8 @@ begin
 	fig
 end
 
-# ╔═╡ 8a1f34aa-ea80-4dfd-b505-06ff371053fd
-
+# ╔═╡ f3a81e28-7f50-4295-adbc-3aa8d26ea46f
+train_geo
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1882,6 +1882,6 @@ version = "3.5.0+0"
 # ╠═04c4256a-c654-41af-8962-0017cef60a90
 # ╠═6d4682ef-997d-4a90-a88d-c367dc992539
 # ╠═31395f6f-16e9-4329-a5ba-f65c4e905f97
-# ╠═8a1f34aa-ea80-4dfd-b505-06ff371053fd
+# ╠═f3a81e28-7f50-4295-adbc-3aa8d26ea46f
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
