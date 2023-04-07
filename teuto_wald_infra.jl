@@ -58,7 +58,8 @@ function query_overpass_turbo_train_stations()
 	return @chain train_station_url begin
 		query_overpass_api
 		@transform(:railway = :tags["railway"],
-			:station_name = :tags["name"]
+			:station_name = :tags["name"],
+			:city = get(:tags, "addr:city", nothing),
 		)
 	end
 end
@@ -213,9 +214,9 @@ begin
 		gd[1, 1];
 		source=source,
 		dest=dest,
-		lonlims=(7.877, 8.81),
+		lonlims=(7.7, 8.9),
 		latlims=(51.778, 52.515),
-		title=string(travel_time) * " Min from Train",
+		title="$travel_time Min from Train",
 		subtitle="Data: © OpenStreetMap",
 		backgroundcolor=background_gray,
 	)
@@ -231,11 +232,16 @@ begin
 		)
 	end
 
-	# scatter!(ga,
-	# 	cities_towns[!, :lat],
-	# 	cities_towns[!, :lon],
-	# 	strokecolor = (:black, 100),
-	# 	size=1000)
+	scatter!(ga,
+		data[!, :lon],
+		data[!, :lat],
+		strokecolor = (:black, 100);
+		# label=data[!, :station_name],
+		size=1000)
+	@chain data @subset(:station_name ∈ ["Osnabrück Hauptbahnhof", "Bielefeld Hauptbahnhof"]) text!(ga,
+		_[!, :lon],
+		_[!, :lat];
+		text=_[!, :city])
 	fig
 end
 
